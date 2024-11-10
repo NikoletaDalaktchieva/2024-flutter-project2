@@ -1,24 +1,15 @@
 import 'dart:math';
 
+import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:memory_game/components/MemoryCard.dart';
+import 'package:memory_game/controllers/GameController.dart';
 import 'package:memory_game/models/Levels.dart';
+import 'package:memory_game/widget/config.dart';
 
 import 'ResultScreen.dart';
-
-class GameScreen extends StatelessWidget {
-  final Levels level;
-
-  GameScreen(this.level);
-  @override
-  Widget build(BuildContext context) {
-    return GameWidget(
-      game: MemoryGame(level),
-    );
-  }
-}
 
 class MemoryGame extends FlameGame {
   List<MemoryCard> flippedCards = [];
@@ -26,8 +17,16 @@ class MemoryGame extends FlameGame {
   double timeLeft;
   final Levels level;
   int flipped = 0;
+  GameController gameController = Get.find<GameController>();
 
-  MemoryGame(this.level) : timeLeft = level.timeLimit;
+  MemoryGame(this.level)
+      : timeLeft = level.timeLimit,
+        super(
+          camera: CameraComponent.withFixedResolution(
+            width: gameWidth,
+            height: gameHeight,
+          ),
+        );
 
   @override
   Future<void> onLoad() async {
@@ -37,26 +36,28 @@ class MemoryGame extends FlameGame {
 
   @override
   Color backgroundColor() {
-    return Color(0xFFD8CAB8);
+    return backgroundColorConf;
   }
 
   void initializeGame() {
     List<String> symbols = generateShuffledSymbols(level.pairs);
     for (int i = 0; i < symbols.length; i++) {
-      final position =
-          Vector2(100.0 * ((i + 1) % 4) + 100, 150.0 * (i ~/ 4) + 100);
       add(MemoryCard(
-        position,
+        i,
         symbols[i],
-        onFlip: handleCardFlip,
+        handleCardFlip,
       ));
     }
   }
 
   List<String> generateShuffledSymbols(int x) {
-    List<String> uniqueSymbols = List.generate(x, (index) => '$index');
+    List<String> uniqueSymbols = gameController.getLevelProgress(level.name);
+    if (uniqueSymbols.isNotEmpty) return uniqueSymbols;
+
+    uniqueSymbols = List.generate(x, (index) => '$index');
     List<String> duplicatedSymbols = [...uniqueSymbols, ...uniqueSymbols];
     duplicatedSymbols.shuffle(Random());
+    gameController.saveLevel(level.name, duplicatedSymbols);
     return duplicatedSymbols;
   }
 
@@ -95,5 +96,9 @@ class MemoryGame extends FlameGame {
       gameFinished = true;
       Get.offAll(() => const ResultScreen(false));
     }
+  }
+
+  stopGame() {
+    gameFinished = true;
   }
 }
